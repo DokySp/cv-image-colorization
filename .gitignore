@@ -6,3 +6,5 @@ Best_model_weight.pth
 /datasets/val
 /datasets/hint
 /datasets/mask
+
+/data/__pycache__

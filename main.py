@@ -31,9 +31,9 @@ train_dataloader = data.DataLoader(train_dataset, batch_size=4, shuffle=True)
 
 for i, data in enumerate(tqdm.tqdm(train_dataloader)):
     if use_cuda:
-        l = data["l"]  # .to('cuda')
-        ab = data["ab"]  # .to('cuda')
-        hint = data["hint"]  # .to('cuda')
+        l = data["l"].to('cuda')
+        ab = data["ab"].to('cuda')
+        hint = data["hint"].to('cuda')
     else:
         l = data["l"]
         ab = data["ab"]

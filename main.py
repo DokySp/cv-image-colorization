@@ -29,6 +29,22 @@ use_cuda = True
 train_dataset = ColorHintDataset(root_path, 256, "train")
 train_dataloader = data.DataLoader(train_dataset, batch_size=4, shuffle=True)
 
+
+
+# import ssim
+# import torch.nn.functional as F
+
+# ssim_loss = ssim.SSIM(mul=1000)
+# l1_loss = torch.nn.L1Loss()
+
+from utils.MS_SSIM_L1_loss import MS_SSIM_L1_LOSS
+from models.model import AttentionR2Unet
+
+
+model = AttentionR2Unet()
+print(model)
+
+
 for i, data in enumerate(tqdm.tqdm(train_dataloader)):
     if use_cuda:
         l = data["l"].to('cuda')
@@ -48,6 +64,38 @@ for i, data in enumerate(tqdm.tqdm(train_dataloader)):
     gt_bgr = cv2.cvtColor(gt_np, cv2.COLOR_LAB2RGB)
     hint_bgr = cv2.cvtColor(hint_np, cv2.COLOR_LAB2RGB)
 
+
+
+    # Loss func.
+
+    # ssim_loss_val = ssim_loss(gt_image, hint_image)
+
+
+    # l1_loss_val = l1_loss(gt_image, hint_image)
+
+    # print("ssim_loss_val", ssim_loss_val)
+    # print("l1_loss", l1_loss_val)
+
+    # a = 0.84
+    # L_mix = a * L_ms-ssim + (1-a) * L1 * Gaussian_L1
+
+    ms_ssim_l1_loss = MS_SSIM_L1_LOSS(alpha=0.84)
+
+    loss = ms_ssim_l1_loss(gt_image, hint_image)
+
+
+
+
+
+
+
+    # epoch (training / val)
+
+    # test code
+
+
+
+
     plt.figure(1)
     plt.imshow(gt_bgr)
     print(gt_bgr.shape)
@@ -57,3 +105,5 @@ for i, data in enumerate(tqdm.tqdm(train_dataloader)):
     plt.show()
 
     input()
+
+    prev_img = gt_image

@@ -8,3 +8,4 @@ Best_model_weight.pth
 /datasets/mask
 
 /data/__pycache__
+__pycache__

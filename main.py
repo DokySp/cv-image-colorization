@@ -33,7 +33,7 @@ val_dataset = ColorHintDataset(root_path, 256, "val")
 val_dataloader = data.DataLoader(val_dataset, batch_size=4, shuffle=False)
 
 test_dataset = ColorHintDataset(root_path, 256, "test")
-test_dataloader = data.DataLoader(val_dataset, batch_size=4, shuffle=False)
+test_dataloader = data.DataLoader(test_dataset, batch_size=4, shuffle=False)
 
 # import ssim
 # import torch.nn.functional as F
@@ -52,32 +52,32 @@ import matplotlib.pyplot as plt
 
 from datetime import datetime
 
-
-# Load Model
-model = AttentionR2Unet().cuda()
-
-# Loss func.
-criterion = MS_SSIM_L1_LOSS(alpha=0.84)
-
-# 옵티마이저
 import torch.optim as optim
+import pandas as pd
 
-optimizer = optim.NAdam(model.parameters(), lr=0.0001)  # 학습할 것들을 옵팀에 넘김
-
-# 기타 변수들
-train_info = []
-val_info = []
-object_epoch = 10
+import numpy as np
+import matplotlib.pyplot as plt
 
 
-save_path = "./saved_models"
-os.makedirs(save_path, exist_ok=True)
-# output_path = os.path.join(save_path, "basic_model.tar") # 관습적으로 tar을 확장자로 사용
-# output_path = os.path.join(save_path, "validation_model.tar")
-output_path = os.path.join(save_path, "AttentionR2Unet" + datetime.now() + ".tar")
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
 
 
-def train_1_epoch(model, dataloader):
+
+def train_1_epoch(model, dataloader, optimizer, criterion):
     # 시각화를 위한 변수
     # confusion_matrix = [[0, 0], [0, 0]]
     total_loss = 0
@@ -85,7 +85,9 @@ def train_1_epoch(model, dataloader):
 
     model.train()  # PyTorch: train, test mode 운영
 
-    for i, data in tqdm.auto.tqdm(dataloader):
+
+
+    for data in tqdm.auto.tqdm(dataloader):
 
         if use_cuda:
             l = data["l"].to("cuda")
@@ -96,6 +98,7 @@ def train_1_epoch(model, dataloader):
             ab = data["ab"]
             hint = data["hint"]
 
+
         gt_image = torch.cat((l, ab), dim=1)
         hint_image = torch.cat((l, hint), dim=1)
 
@@ -104,11 +107,6 @@ def train_1_epoch(model, dataloader):
 
         # y hat, y
         loss = criterion(output, gt_image)
-
-        print(output)
-        print(loss)
-        print(i)
-        input()
 
         # back propagation
         loss.backward()
@@ -120,6 +118,13 @@ def train_1_epoch(model, dataloader):
 
         total_loss += loss.detach()  # detach -> parameter 연산에 사용 X
         iteration += 1
+
+        l.to("cpu")
+        ab.to("cpu")
+        hint.to("cpu")
+        l = ""
+        ab = ""
+        hint = ""
 
     #     for i in range(len(label)):
     #         real_class = int(label[i])
@@ -134,15 +139,7 @@ def train_1_epoch(model, dataloader):
     return total_loss
 
 
-#
-#
-#
-#
-#
-#
-#
-#
-#
+
 #
 #
 #
@@ -150,7 +147,7 @@ def train_1_epoch(model, dataloader):
 #
 
 
-def validation_1_epoch(model, dataloader):
+def validation_1_epoch(model, dataloader, criterion):
     # 시각화를 위한 변수
     # confusion_matrix = [[0, 0], [0, 0]]
     total_loss = 0
@@ -158,7 +155,9 @@ def validation_1_epoch(model, dataloader):
 
     model.eval()  # PyTorch: train, test mode 운영
 
-    for i, data in tqdm.auto.tqdm(dataloader):
+
+
+    for data in tqdm.auto.tqdm(dataloader):
 
         if use_cuda:
             l = data["l"].to("cuda")
@@ -179,15 +178,19 @@ def validation_1_epoch(model, dataloader):
 
         total_loss += loss.detach()  # detach -> parameter 연산에 사용 X
         iteration += 1
-
-        print(loss)
-        print(i)
-        input()
+        
 
         # for i in range(len(label)):
         #     real_class = int(label[i])
         #     pred_class = int(output[i] > 0.5)
     #         confusion_matrix[real_class][pred_class] += 1
+
+        l.to("cpu")
+        ab.to("cpu")
+        hint.to("cpu")
+        l = ""
+        ab = ""
+        hint = ""
 
     # positive = confusion_matrix[0][0] + confusion_matrix[1][1]
     # negative = confusion_matrix[0][1] + confusion_matrix[1][0]
@@ -202,128 +205,19 @@ def validation_1_epoch(model, dataloader):
 #
 #
 #
-#
-#
-#
-#
-#
-#
-#
-#
 
 
-best_accuracy = 0
-
-for epoch in range(object_epoch):
-    train_accuracy, train_loss = train_1_epoch(model, train_dataloader)
-    print(
-        "[Training] Epoch {}: accuracy: {}, loss: {}".format(
-            epoch, train_accuracy, train_loss
-        )
-    )
-
-    train_info.append({"loss": train_loss, "accuracy": train_accuracy})
-
-    # Validation
-    with torch.no_grad():  # gradient 계산 X
-        val_accuracy, val_loss = validation_1_epoch(model, val_dataloader)
-    print(
-        "[Validation] Epoch {}: accuracy: {}, loss: {}".format(
-            epoch, val_accuracy, val_loss
-        )
-    )
-
-    val_info.append({"loss": val_loss, "accuracy": val_accuracy})
-
-    # 제일 정확한 모델만 저장!
-    if best_accuracy < val_accuracy:
-        best_accuracy = val_accuracy
-
-        torch.save(
-            {
-                "memo": "This is Classification Model",
-                "accuracy": best_accuracy,
-                "state_dict": model.state_dict(),  # 모든 weight 변수이름 / parameter 값들을 가진 dict.
-            },
-            output_path,
-        )
-
-
-#
-#
-#
-#
-#
-#
-#
-#
-
-
-import pandas as pd
-
-tr_res = pd.DataFrame(train_info)
-va_res = pd.DataFrame(val_info)
-
-tr_res.to_csv("train" + datetime.now() + ".csv")
-va_res.to_csv("validation" + datetime.now() + ".csv")
-
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-epoch_axis = np.arange(0, object_epoch)
-
-plt.title("ACCURACY")
-
-plt.plot(
-    epoch_axis,
-    [info["accuracy"] for info in train_info],
-    epoch_axis,
-    [info["accuracy"] for info in val_info],
-    "r-",
-)
-plt.legend(["TRAIN", "VALIDATION"])
-
-plt.figure()
-
-plt.title("LOSS")
-plt.plot(
-    epoch_axis,
-    [info["loss"].detach().cpu().numpy() for info in train_info],
-    epoch_axis,
-    [info["loss"].detach().cpu().numpy() for info in val_info],
-    "r-",
-)
-plt.legend(["TRAIN", "VALIDATION"])
-
-plt.savefig("result" + datetime.now() + ".png")
-
-
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-
-
-# inference step
-def test_1epoch(model, dataloader):
+def test_1_epoch(model, dataloader, name):
 
     model.eval()  # PyTorch: train, test mode 운영
 
-    results = []
+    # results = []
 
-    for i, data in tqdm.auto.tqdm(dataloader):
+    for data in tqdm.auto.tqdm(dataloader):
         if use_cuda:
             l = data["l"].to("cuda")
             hint = data["hint"].to("cuda")
-            file_name = data["file_name"].to("cuda")
+            file_name = data["file_name"]
         else:
             l = data["l"]
             hint = data["hint"]
@@ -333,38 +227,247 @@ def test_1epoch(model, dataloader):
 
         output = model(hint_image).squeeze()
 
-        output_np = tensor2im(output)
-        output_bgr = cv2.cvtColor(output_np, cv2.COLOR_LAB2RGB)
-        cv2.imwrite("./result/" + file_name, output_bgr)
+        # batch size
+        for i in range(4):
+            output_np = tensor2im(output[i].unsqueeze(0))
+            output_bgr = cv2.cvtColor(output_np, cv2.COLOR_LAB2RGB)
+            cv2.imwrite("./result/" + name + "___" + file_name[i], output_bgr)
+        
+        l.to("cpu")
+        hint.to("cpu")
+        l = ""
+        hint = ""
 
-    return results
-
-
-def test():
-    model_path = os.path.join(save_path, "deep_model.tar")  # basic_model.tar
-    saved_model = torch.load(model_path)
-
-    print(saved_model["memo"])
-    print(saved_model.keys())
-    print(saved_model["accuracy"])
-
-    # 모델을 불러오기
-    model = AttentionR2Unet().cuda()
-    model.load_state_dict(saved_model["state_dict"], strict=True)
-
-    # state_dict -> training한 모든 값들
-    # print(saved_model['state_dict'])
-    print(saved_model["state_dict"].keys())
-    # strict True -> 로드하는 모델 키와 적용하려는 모델 키가 같아야 됨!
-    #        False -> 이름 다른 경우는 버림
-    result_path = "./output.txt"
-
-    res = test_1epoch(model, test_dataloader)
-    with open(result_path, "w") as f:
-        f.writelines(res)
-
+    # return results
 
 #
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+
+
+def main(lrs, epochs, optims, alpha):
+
+
+    now_time = str(datetime.now())
+
+
+    # Load Model
+    model = AttentionR2Unet().cuda()
+
+    # Loss func.
+    criterion = MS_SSIM_L1_LOSS(alpha=alpha)
+
+    # 옵티마이저
+
+    optimizer = optims(model.parameters(), lr=lrs)  # 학습할 것들을 옵팀에 넘김
+
+    # 기타 변수들
+    train_info = []
+    val_info = []
+    object_epoch = epochs
+
+
+    save_path = "./saved_models"
+    os.makedirs(save_path, exist_ok=True)
+    # output_path = os.path.join(save_path, "basic_model.tar") # 관습적으로 tar을 확장자로 사용
+    # output_path = os.path.join(save_path, "validation_model.tar")
+    output_path = os.path.join(save_path, "AttentionR2Unet_" + now_time + ".pth")
+    output_path = output_path.replace(" ", "__")
+    output_path = output_path.replace("-", "_")
+
+
+
+    #
+    #
+    #
+    #
+    #
+
+
+    min_lose = 100000000000000
+
+    for epoch in range(object_epoch):
+        train_loss = train_1_epoch(model, train_dataloader, optimizer=optimizer, criterion=criterion)
+        print(
+            "[Training] Epoch {}: loss: {}".format(
+                epoch, train_loss
+            )
+        )
+
+        train_info.append(train_loss.detach().cpu().flatten())
+
+        # Validation
+        with torch.no_grad():  # gradient 계산 X
+            val_loss = validation_1_epoch(model, val_dataloader, criterion=criterion)
+        print(
+            "[Validation] Epoch: {}, loss: {}".format(
+                epoch, val_loss
+            )
+        )
+
+        val_info.append(val_loss.detach().cpu().flatten())
+
+        # 제일 정확한 모델만 저장!
+        if min_lose > val_loss:
+            min_lose = val_loss
+
+            torch.save(
+                {
+                    "memo": "Test",
+                    "lrs": lrs, 
+                    "epochs": epochs, 
+                    "optims": optims,
+                    "alpha": alpha,
+                    "loss": min_lose,
+                    "state_dict": model.state_dict(),  # 모든 weight 변수이름 / parameter 값들을 가진 dict.
+                },
+                output_path,
+            )
+
+            out = pd.DataFrame({
+                "lrs": [str(lrs)], 
+                "epochs": [str(epochs)], 
+                "optims": [str(optims)],
+                "alpha": [str(alpha)],
+                "loss": [str(min_lose.detach().cpu().numpy())],
+            })
+
+            out.to_csv(output_path+".csv")
+
+
+    #
+    #
+    #
+    #
+    #
+
+    tr_res = pd.DataFrame({
+        "train_info": train_info,
+        "val_info": val_info,
+    })
+    tr_res.to_csv("./saved_models/loss_" + now_time + ".csv")
+
+
+
+
+
+    # Plot loss graph
+    epoch_axis = np.arange(0, object_epoch)
+
+    # plt.title("ACCURACY")
+
+    # plt.plot(
+    #     epoch_axis,
+    #     [info["loss"] for info in train_info],
+    #     epoch_axis,
+    #     [info["loss"] for info in val_info],
+    #     "r-",
+    # )
+    # plt.legend(["TRAIN", "VALIDATION"])
+
+    # plt.figure()
+
+    plt.title("LOSS")
+    plt.plot(
+        epoch_axis,
+        [float(info[0]) for info in train_info],
+        epoch_axis,
+        [float(info[0]) for info in val_info],
+        "r-",
+    )
+    plt.legend(["TRAIN", "VALIDATION"])
+
+    plt.savefig("./saved_models/result_" + now_time + ".png")
+
+
+    #
+    #
+    #
+    #
+    #
+    model.cpu()
+    model = ""
+    torch.cuda.empty_cache()
+
+
+    # # TEST CODE
+
+    # # TODO
+    # input_path = "AttentionR2Unet_" + now_time + ".pth"
+    # input_path = input_path.replace(" ", "__")
+    # input_path = input_path.replace("-", "_")
+
+    # model_path = os.path.join(save_path, input_path)  # basic_model.tar
+    # saved_model = torch.load(model_path)
+
+
+
+    # # print(saved_model["memo"])
+    # # print(saved_model.keys())
+    # # print(saved_model["accuracy"])
+
+
+    # # TODO
+    # # 모델을 불러오기
+    # model = AttentionR2Unet().cuda()
+    # model.load_state_dict(saved_model["state_dict"], strict=True)
+
+
+    # # state_dict -> training한 모든 값들
+    # # print(saved_model['state_dict'])
+    
+
+    # # TODO
+    # # print(saved_model["state_dict"].keys())
+    
+
+    # # strict True -> 로드하는 모델 키와 적용하려는 모델 키가 같아야 됨!
+    # #        False -> 이름 다른 경우는 버림
+    # # result_path = "./output"+now_time+".txt"
+
+    # test_1_epoch(model, test_dataloader, now_time)
+    # # with open(result_path, "w") as f:
+    # #     f.writelines(res)
+    
+    # model.cpu()
+    # model = ""
+    # torch.cuda.empty_cache()
+
+
+
+optimss = [
+    optim.NAdam,
+    optim.Adam,
+]
+lrss = [0.001, 0.0001, 0.00001]
+epochss = [100, 150, 200]
+alpha = [0.025, 0.4, 0.84]
+
+
+for o in optimss:
+    for l in lrss:
+        for e in epochss:
+            for a in alpha:
+                main(l, e, o, a)
+
+# main(0.0001, 1, optim.NAdam, 0.84)
+
+
 #
 #
 #

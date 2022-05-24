@@ -51,7 +51,9 @@ class R2CNNBlock(nn.Module):
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
     
     def forward(self, x):
-        return self.rcnn(self.conv(x))
+        x = self.conv(x)
+        x1 = self.rcnn(x)
+        return x + x1
 
 
 
@@ -73,7 +75,7 @@ class AttentionBlock(nn.Module):
 
         # Linear Transformation
         self.psi = nn.Sequential(
-            nn.Conv2d(psi_channels, 1, kernel_size=1, stride=1, padding=1, bias=True),
+            nn.Conv2d(psi_channels, 1, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(1),
             nn.Sigmoid()
         )
@@ -122,7 +124,7 @@ class AttentionR2Unet(nn.Module):
         self.attention1 = AttentionBlock(start_ch, start_ch, int(start_ch/2))
         self.upr2net1 = R2CNNBlock(start_ch*2, start_ch, recurrent_iter=recurrent_iter)
 
-        self.conv1 = nn.Conv2d(start_ch, out_channels, kernel_size=1, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(start_ch, out_channels, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
         # Encoding
@@ -132,13 +134,13 @@ class AttentionR2Unet(nn.Module):
         x2 = self.r2cnn2(x2)
 
         x3 = self.maxpool(x2)
-        x3 = self.r2cnn2(x3)
+        x3 = self.r2cnn3(x3)
 
         x4 = self.maxpool(x3)
-        x4 = self.r2cnn2(x4)
+        x4 = self.r2cnn4(x4)
 
         x5 = self.maxpool(x4)
-        x5 = self.r2cnn2(x5)
+        x5 = self.r2cnn5(x5)
 
 
         # Decoding

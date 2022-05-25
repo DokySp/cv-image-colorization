@@ -8,6 +8,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as img
 
+from utils.logger import send_log
+
+log_name = "cv220525"
+
 
 def tensor2im(input_image, imtype=np.uint8):
     if isinstance(input_image, torch.Tensor):
@@ -303,28 +307,36 @@ def main(lrs, epochs, optims, alpha):
 
     for epoch in range(object_epoch):
         train_loss = train_1_epoch(model, train_dataloader, optimizer=optimizer, criterion=criterion)
-        print(
-            "[Training] Epoch {}: loss: {}".format(
+        test_val = "[Training] Epoch {}: loss: {}".format(
                 epoch, train_loss
             )
-        )
-
-        train_info.append(train_loss.detach().cpu().flatten())
+        
+        print(test_val)
+        send_log(log_name, test_val)
+    
+        train_loss = train_loss.detach().cpu().flatten()[0]
+        train_info.append(train_loss)
 
         # Validation
         with torch.no_grad():  # gradient 계산 X
             val_loss = validation_1_epoch(model, val_dataloader, criterion=criterion)
-        print(
-            "[Validation] Epoch: {}, loss: {}".format(
+        
+        val_msg = "[Validation] Epoch: {}, loss: {}".format(
                 epoch, val_loss
             )
-        )
+        
+        print(val_msg)
+        send_log(log_name, val_msg)
 
-        val_info.append(val_loss.detach().cpu().flatten())
+        val_loss = val_loss.detach().cpu().flatten()[0]
+        val_info.append(val_loss)
 
         # 제일 정확한 모델만 저장!
         if min_lose > val_loss:
             min_lose = val_loss
+            min_loss_msg = "min_loss: " + str(min_lose)
+            print(min_loss_msg)
+            send_log(log_name, min_loss_msg)
 
             torch.save(
                 {
@@ -385,9 +397,9 @@ def main(lrs, epochs, optims, alpha):
     plt.title("LOSS")
     plt.plot(
         epoch_axis,
-        [float(info[0]) for info in train_info],
+        [float(info) for info in train_info],
         epoch_axis,
-        [float(info[0]) for info in val_info],
+        [float(info) for info in val_info],
         "r-",
     )
     plt.legend(["TRAIN", "VALIDATION"])
@@ -400,69 +412,29 @@ def main(lrs, epochs, optims, alpha):
     #
     #
     #
+
+
     model.cpu()
     model = ""
     torch.cuda.empty_cache()
 
 
-    # # TEST CODE
-
-    # # TODO
-    # input_path = "AttentionR2Unet_" + now_time + ".pth"
-    # input_path = input_path.replace(" ", "__")
-    # input_path = input_path.replace("-", "_")
-
-    # model_path = os.path.join(save_path, input_path)  # basic_model.tar
-    # saved_model = torch.load(model_path)
-
-
-
-    # # print(saved_model["memo"])
-    # # print(saved_model.keys())
-    # # print(saved_model["accuracy"])
-
-
-    # # TODO
-    # # 모델을 불러오기
-    # model = AttentionR2Unet().cuda()
-    # model.load_state_dict(saved_model["state_dict"], strict=True)
-
-
-    # # state_dict -> training한 모든 값들
-    # # print(saved_model['state_dict'])
-    
-
-    # # TODO
-    # # print(saved_model["state_dict"].keys())
-    
-
-    # # strict True -> 로드하는 모델 키와 적용하려는 모델 키가 같아야 됨!
-    # #        False -> 이름 다른 경우는 버림
-    # # result_path = "./output"+now_time+".txt"
-
-    # test_1_epoch(model, test_dataloader, now_time)
-    # # with open(result_path, "w") as f:
-    # #     f.writelines(res)
-    
-    # model.cpu()
-    # model = ""
-    # torch.cuda.empty_cache()
-
-
-
 optimss = [
     optim.NAdam,
-    optim.Adam,
+    # optim.Adam,
 ]
-lrss = [0.001, 0.0001, 0.00001]
-epochss = [100, 150, 200]
-alpha = [0.025, 0.4, 0.84]
-
+lrss = [0.00025]
+# epochss = [130]
+epochss = [1]
+alpha = [0.84]
 
 for o in optimss:
     for l in lrss:
         for e in epochss:
             for a in alpha:
+                case_msg = "case: opt: " + str(o) + " / lr: " + str(l) + " / e: " + str(e) + " / a: " + str(a)
+                print(case_msg)
+                send_log(log_name, case_msg)
                 main(l, e, o, a)
 
 # main(0.0001, 1, optim.NAdam, 0.84)

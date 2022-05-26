@@ -32,7 +32,7 @@ from utils.tensor2im import tensor2im
 import wandb
 
 
-log_name = "cv220527-01"
+log_name = "cv220526-re1-64"
 wandb.init(project="cv1", entity="dokysp")
 
 # Change to your data root directory
@@ -216,7 +216,7 @@ def main(lrs, epochs, optims, alpha):
     now_time = str(datetime.now())
 
     # Load Model
-    model = AttentionR2Unet(recurrent_iter=1, start_ch=32).cuda()
+    model = AttentionR2Unet(recurrent_iter=1).cuda()
 
     # Loss func.
     criterion = MS_SSIM_L1_LOSS(alpha=alpha)
@@ -251,18 +251,25 @@ def main(lrs, epochs, optims, alpha):
 
         wandb.log({"epoch": epoch})
 
+
+
+
         train_loss = train_1_epoch(
             model, train_dataloader, optimizer=optimizer, criterion=criterion
         )
-        test_val = "[Training] Epoch {}: loss: {}".format(epoch, train_loss)
+        train_msg = "[Training] Epoch {}: loss: {}".format(epoch, train_loss)
 
-        print(test_val)
-        send_log(log_name, test_val)
+        print(train_msg)
 
-        train_loss = train_loss.detach().cpu().flatten()[0]
+        train_loss = float(train_loss.detach().cpu().flatten()[0])
         train_info.append(train_loss)
 
         wandb.log({"train_loss": train_loss})
+        send_log(log_name, train_loss)
+
+
+
+
 
         # Validation
         with torch.no_grad():  # gradient 계산 X
@@ -271,23 +278,32 @@ def main(lrs, epochs, optims, alpha):
         val_msg = "[Validation] Epoch: {}, loss: {}".format(epoch, val_loss)
 
         print(val_msg)
-        send_log(log_name, val_msg)
 
-        val_loss = val_loss.detach().cpu().flatten()[0]
+        val_loss = float(val_loss.detach().cpu().flatten()[0])
         val_info.append(val_loss)
 
         wandb.log({"val_loss": val_loss})
-
         send_log(log_name, val_loss)
-        wandb.log({"val_loss": val_loss})
         
 
+
+
+
+
         # Update Learning Rate
-        new_lr = schedular.get_last_lr()
+        new_lr = schedular.get_last_lr()[0]
         wandb.log({"learning_rate": new_lr})
         send_log(log_name, new_lr)
         print("curr_lr", new_lr)
+        
         schedular.step()
+        new_lr = schedular.get_last_lr()[0]
+        print("new_lr", new_lr)
+
+
+
+
+
 
 
         # 제일 정확한 모델만 저장!
@@ -318,7 +334,7 @@ def main(lrs, epochs, optims, alpha):
                     "epochs": [str(epochs)],
                     "optims": [str(optims)],
                     "alpha": [str(alpha)],
-                    "loss": [str(min_lose.detach().cpu().numpy())],
+                    "loss": [str(min_lose)],
                 }
             )
 

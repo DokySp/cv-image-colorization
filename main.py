@@ -29,9 +29,11 @@ import matplotlib.pyplot as plt
 
 from utils.tensor2im import tensor2im
 
+import wandb
 
-log_name = "cv220525"
 
+log_name = "cv220525-01"
+wandb.init(project="cv1", entity="dokysp")
 
 # Change to your data root directory
 root_path = "./datasets"
@@ -104,6 +106,8 @@ def train_1_epoch(model, dataloader, optimizer, criterion):
 
         # Gradient의 learnable parameter update (lr, Adam 안에 기타 변수들 등등)
         optimizer.step()
+
+        
 
         # ----------
 
@@ -218,8 +222,9 @@ def main(lrs, epochs, optims, alpha):
     criterion = MS_SSIM_L1_LOSS(alpha=alpha)
 
     # 옵티마이저
-
     optimizer = optims(model.parameters(), lr=lrs)  # 학습할 것들을 옵팀에 넘김
+    schedular = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=1, gamma=0.1)
+
 
     # 기타 변수들
     train_info = []
@@ -243,6 +248,9 @@ def main(lrs, epochs, optims, alpha):
     min_lose = 100000000000000
 
     for epoch in range(object_epoch):
+
+        wandb.log({"epoch": epoch})
+
         train_loss = train_1_epoch(
             model, train_dataloader, optimizer=optimizer, criterion=criterion
         )
@@ -253,6 +261,8 @@ def main(lrs, epochs, optims, alpha):
 
         train_loss = train_loss.detach().cpu().flatten()[0]
         train_info.append(train_loss)
+
+        wandb.log({"train_loss": train_loss})
 
         # Validation
         with torch.no_grad():  # gradient 계산 X
@@ -265,6 +275,14 @@ def main(lrs, epochs, optims, alpha):
 
         val_loss = val_loss.detach().cpu().flatten()[0]
         val_info.append(val_loss)
+
+        wandb.log({"val_loss": val_loss})
+
+        send_log(log_name, min_loss_msg)
+        wandb.log({"val_loss": val_loss})
+
+        wandb.log({"learning_rate": schedular.get_last_lr()})
+        schedular.step()
 
         # 제일 정확한 모델만 저장!
         if min_lose > val_loss:
@@ -355,10 +373,12 @@ optimss = [
     optim.NAdam,
     # optim.Adam,
 ]
-lrss = [0.00025]
+# lrss = [0.00025]
 # epochss = [130]
-epochss = [1]
-alpha = [0.84]
+# alpha = [0.84]
+lrss = [0.00025, 0.00001]
+epochss = [150, 200]
+alpha = [0.48, 0.84]
 
 for o in optimss:
     for l in lrss:

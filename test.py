@@ -25,8 +25,6 @@ def test_1_epoch(model, dataloader, name):
 
     model.eval()  # PyTorch: train, test mode 운영
 
-    # results = []
-
     for data in tqdm.auto.tqdm(dataloader):
         if use_cuda:
             l = data["l"].to("cuda")
@@ -41,16 +39,23 @@ def test_1_epoch(model, dataloader, name):
 
         output = model(hint_image).squeeze()
 
+
         # batch size
         for i in range(4):
             output_np = tensor2im(output[i].unsqueeze(0))
-            output_bgr = cv2.cvtColor(output_np, cv2.COLOR_LAB2RGB)
-            cv2.imwrite("./result/" + name + "___" + file_name[i], output_bgr)
+            output_bgr = cv2.cvtColor(output_np, cv2.COLOR_Lab2BGR)
+            cv2.imwrite("./result/" + file_name[i], output_bgr)
 
-        l.to("cpu")
-        hint.to("cpu")
-        l = ""
-        hint = ""
+
+        del l
+        del hint
+        del output_np
+        del output_bgr
+        del output
+
+        torch.cuda.empty_cache()
+
+
 
     # return results
 
@@ -58,15 +63,16 @@ def test_1_epoch(model, dataloader, name):
 # TEST CODE
 
 # TODO
-input_path = "[ENTER_FILE_NANE]"
-input_path = input_path.replace(" ", "__")
-input_path = input_path.replace("-", "_")
-
+input_path = "111.pth"
 model_path = os.path.join(save_path, input_path)  # basic_model.tar
 saved_model = torch.load(model_path)
 
-
-print(saved_model["accuracy"])
+print(saved_model["memo"])
+print(saved_model["lrs"])
+print(saved_model["epochs"])
+print(saved_model["optims"])
+print(saved_model["alpha"])
+print(saved_model["loss"])
 
 
 # TODO
@@ -78,6 +84,7 @@ model.load_state_dict(saved_model["state_dict"], strict=True)
 # state_dict -> training한 모든 값들
 # print(saved_model['state_dict'])
 
+test_1_epoch(model, test_dataloader, "")
 
 # TODO
 # print(saved_model["state_dict"].keys())

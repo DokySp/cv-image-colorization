@@ -32,7 +32,7 @@ from utils.tensor2im import tensor2im
 import wandb
 
 
-log_name = "cv220525-01"
+log_name = "cv220527-01"
 wandb.init(project="cv1", entity="dokysp")
 
 # Change to your data root directory
@@ -216,7 +216,7 @@ def main(lrs, epochs, optims, alpha):
     now_time = str(datetime.now())
 
     # Load Model
-    model = AttentionR2Unet().cuda()
+    model = AttentionR2Unet(recurrent_iter=1, start_ch=32).cuda()
 
     # Loss func.
     criterion = MS_SSIM_L1_LOSS(alpha=alpha)
@@ -278,11 +278,17 @@ def main(lrs, epochs, optims, alpha):
 
         wandb.log({"val_loss": val_loss})
 
-        send_log(log_name, min_loss_msg)
+        send_log(log_name, val_loss)
         wandb.log({"val_loss": val_loss})
+        
 
-        wandb.log({"learning_rate": schedular.get_last_lr()})
+        # Update Learning Rate
+        new_lr = schedular.get_last_lr()
+        wandb.log({"learning_rate": new_lr})
+        send_log(log_name, new_lr)
+        print("curr_lr", new_lr)
         schedular.step()
+
 
         # 제일 정확한 모델만 저장!
         if min_lose > val_loss:
@@ -290,6 +296,8 @@ def main(lrs, epochs, optims, alpha):
             min_loss_msg = "min_loss: " + str(min_lose)
             print(min_loss_msg)
             send_log(log_name, min_loss_msg)
+            wandb.log({"min_loss_msg": min_loss_msg})
+
 
             torch.save(
                 {
@@ -370,15 +378,15 @@ def main(lrs, epochs, optims, alpha):
 
 
 optimss = [
-    optim.NAdam,
-    # optim.Adam,
+    # optim.NAdam,
+    optim.Adam,
 ]
 # lrss = [0.00025]
 # epochss = [130]
 # alpha = [0.84]
-lrss = [0.00025, 0.00001]
-epochss = [150, 200]
-alpha = [0.48, 0.84]
+lrss = [0.00025]
+epochss = [200]
+alpha = [0.84]
 
 for o in optimss:
     for l in lrss:

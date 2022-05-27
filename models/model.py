@@ -33,6 +33,8 @@ class RecurrentBlock(nn.Module):
         )
     
     def forward(self, x):
+        if self.recurrent_iter == 0:
+            return x
         for i in range(self.recurrent_iter):
             if i == 0:
                 x1 = self.conv(x)

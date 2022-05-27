@@ -32,7 +32,7 @@ from utils.tensor2im import tensor2im
 import wandb
 
 
-log_name = "cv220526-re1-64"
+log_name = "cv220527-re3-64"
 wandb.init(project="cv1", entity="dokysp")
 
 # Change to your data root directory
@@ -112,6 +112,7 @@ def train_1_epoch(model, dataloader, optimizer, criterion):
         # ----------
 
         total_loss += loss.detach()  # detach -> parameter 연산에 사용 X
+        wandb.log({"train_each_loss": float(loss.detach().cpu().flatten()[0])})
         iteration += 1
 
         l.to("cpu")
@@ -169,6 +170,7 @@ def validation_1_epoch(model, dataloader, criterion):
         loss = criterion(output, gt_image)
 
         total_loss += loss.detach()  # detach -> parameter 연산에 사용 X
+        wandb.log({"val_each_loss": float(loss.detach().cpu().flatten()[0])})
         iteration += 1
 
         # for i in range(len(label)):
@@ -216,10 +218,10 @@ def main(lrs, epochs, optims, alpha):
     now_time = str(datetime.now())
 
     # Load Model
-    model = AttentionR2Unet(recurrent_iter=1).cuda()
+    model = AttentionR2Unet(recurrent_iter=2).cuda()
 
     # Loss func.
-    criterion = MS_SSIM_L1_LOSS(alpha=alpha)
+    criterion = MS_SSIM_L1_LOSS(alpha=alpha, data_range=255)
 
     # 옵티마이저
     optimizer = optims(model.parameters(), lr=lrs)  # 학습할 것들을 옵팀에 넘김
@@ -235,9 +237,11 @@ def main(lrs, epochs, optims, alpha):
     os.makedirs(save_path, exist_ok=True)
     # output_path = os.path.join(save_path, "basic_model.tar") # 관습적으로 tar을 확장자로 사용
     # output_path = os.path.join(save_path, "validation_model.tar")
-    output_path = os.path.join(save_path, "AttentionR2Unet_" + now_time + ".pth")
+    output_path = os.path.join(save_path, "AttentionR2Unet_" + now_time)
     output_path = output_path.replace(" ", "__")
     output_path = output_path.replace("-", "_")
+
+    file_iter = 0
 
     #
     #
@@ -310,9 +314,11 @@ def main(lrs, epochs, optims, alpha):
         if min_lose > val_loss:
             min_lose = val_loss
             min_loss_msg = "min_loss: " + str(min_lose)
+            loggggg = min_lose
+
             print(min_loss_msg)
             send_log(log_name, min_loss_msg)
-            wandb.log({"min_loss_msg": min_loss_msg})
+            wandb.log({"min_loss": loggggg})
 
 
             torch.save(
@@ -325,7 +331,7 @@ def main(lrs, epochs, optims, alpha):
                     "loss": min_lose,
                     "state_dict": model.state_dict(),  # 모든 weight 변수이름 / parameter 값들을 가진 dict.
                 },
-                output_path,
+                output_path + "_e" + str(epoch) + ".pth",
             )
 
             out = pd.DataFrame(
@@ -338,7 +344,7 @@ def main(lrs, epochs, optims, alpha):
                 }
             )
 
-            out.to_csv(output_path + ".csv")
+            out.to_csv(output_path + "_e" + str(epoch) + ".csv")
 
     #
     #
@@ -400,7 +406,7 @@ optimss = [
 # lrss = [0.00025]
 # epochss = [130]
 # alpha = [0.84]
-lrss = [0.00025]
+lrss = [0.00003]
 epochss = [200]
 alpha = [0.84]
 
@@ -422,6 +428,8 @@ for o in optimss:
                 send_log(log_name, case_msg)
                 main(l, e, o, a)
 
+
+
 # main(0.0001, 1, optim.NAdam, 0.84)
 
 
@@ -439,6 +447,9 @@ for o in optimss:
 
 
 def load_1_picture():
+
+    prev_img = []
+
     for i, data in enumerate(tqdm.tqdm(train_dataloader)):
         if use_cuda:
             l = data["l"].to("cuda")
@@ -458,6 +469,10 @@ def load_1_picture():
         gt_bgr = cv2.cvtColor(gt_np, cv2.COLOR_LAB2RGB)
         hint_bgr = cv2.cvtColor(hint_np, cv2.COLOR_LAB2RGB)
 
+        # if len(prev_img) == 0:
+        #     prev_img = gt_image
+
+
         # Loss func.
 
         # ssim_loss_val = ssim_loss(gt_image, hint_image)
@@ -470,22 +485,29 @@ def load_1_picture():
         # a = 0.84
         # L_mix = a * L_ms-ssim + (1-a) * L1 * Gaussian_L1
 
-        ms_ssim_l1_loss = MS_SSIM_L1_LOSS(alpha=0.84)
+        ms_ssim_l1_loss = MS_SSIM_L1_LOSS(alpha=0.9, data_range=255)
 
         loss = ms_ssim_l1_loss(gt_image, hint_image)
+
+        
+        wandb.log({"MS_SSIM_L1_0.9": float(loss.cpu().flatten()[0])})
+
 
         # epoch (training / val)
 
         # test code
 
-        plt.figure(1)
-        plt.imshow(gt_bgr)
-        print(gt_bgr.shape)
-        plt.figure(2)
-        plt.imshow(hint_bgr)
-        print(hint_bgr.shape)
-        plt.show()
+        # plt.figure(1)
+        # plt.imshow(gt_bgr)
+        # print(gt_bgr.shape)
+        # plt.figure(2)
+        # plt.imshow(hint_bgr)
+        # print(hint_bgr.shape)
+        # plt.show()
 
-        input()
+        # input()
 
-        prev_img = gt_image
+        # prev_img = gt_image
+
+
+# load_1_picture()

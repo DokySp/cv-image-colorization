@@ -33,7 +33,7 @@ import wandb
 
 
 log_name = "cv220527-re3-64"
-wandb.init(project="cv1", entity="dokysp")
+wandb.init(project="cv3", entity="dokysp", name="au-ssim-R2AUNET-3.5")
 
 # Change to your data root directory
 root_path = "./datasets"
@@ -99,7 +99,7 @@ def train_1_epoch(model, dataloader, optimizer, criterion):
         output = model(hint_image).squeeze()  # [Batch, 1] (2치원) -> [Batch] (1차원)
 
         # y hat, y
-        loss = criterion(output, gt_image)
+        loss = 1 - criterion(output, gt_image)
 
         # back propagation
         loss.backward()
@@ -167,7 +167,7 @@ def validation_1_epoch(model, dataloader, criterion):
         output = model(hint_image).squeeze()
 
         # y hat, y
-        loss = criterion(output, gt_image)
+        loss = 1 - criterion(output, gt_image)
 
         total_loss += loss.detach()  # detach -> parameter 연산에 사용 X
         wandb.log({"val_each_loss": float(loss.detach().cpu().flatten()[0])})
@@ -212,6 +212,7 @@ def validation_1_epoch(model, dataloader, criterion):
 #
 #
 
+from utils.ssim import ssim
 
 def main(lrs, epochs, optims, alpha):
 
@@ -221,11 +222,12 @@ def main(lrs, epochs, optims, alpha):
     model = AttentionR2Unet(recurrent_iter=2).cuda()
 
     # Loss func.
-    criterion = MS_SSIM_L1_LOSS(alpha=alpha, data_range=255)
+    # criterion = MS_SSIM_L1_LOSS(alpha=alpha, data_range=0.97)
+    criterion = ssim
 
     # 옵티마이저
     optimizer = optims(model.parameters(), lr=lrs)  # 학습할 것들을 옵팀에 넘김
-    schedular = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=1, gamma=0.1)
+    # schedular = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=1, gamma=0.1)
 
 
     # 기타 변수들
@@ -237,7 +239,7 @@ def main(lrs, epochs, optims, alpha):
     os.makedirs(save_path, exist_ok=True)
     # output_path = os.path.join(save_path, "basic_model.tar") # 관습적으로 tar을 확장자로 사용
     # output_path = os.path.join(save_path, "validation_model.tar")
-    output_path = os.path.join(save_path, "AttentionR2Unet_" + now_time)
+    output_path = os.path.join(save_path, "R2AUNET_" + now_time)
     output_path = output_path.replace(" ", "__")
     output_path = output_path.replace("-", "_")
 
@@ -295,14 +297,14 @@ def main(lrs, epochs, optims, alpha):
 
 
         # Update Learning Rate
-        new_lr = schedular.get_last_lr()[0]
-        wandb.log({"learning_rate": new_lr})
-        send_log(log_name, new_lr)
-        print("curr_lr", new_lr)
+        # new_lr = schedular.get_last_lr()[0]
+        # wandb.log({"learning_rate": new_lr})
+        # send_log(log_name, new_lr)
+        # print("curr_lr", new_lr)
         
-        schedular.step()
-        new_lr = schedular.get_last_lr()[0]
-        print("new_lr", new_lr)
+        # schedular.step()
+        # new_lr = schedular.get_last_lr()[0]
+        # print("new_lr", new_lr)
 
 
 
@@ -321,30 +323,30 @@ def main(lrs, epochs, optims, alpha):
             wandb.log({"min_loss": loggggg})
 
 
-            torch.save(
-                {
-                    "memo": "Test",
-                    "lrs": lrs,
-                    "epochs": epochs,
-                    "optims": optims,
-                    "alpha": alpha,
-                    "loss": min_lose,
-                    "state_dict": model.state_dict(),  # 모든 weight 변수이름 / parameter 값들을 가진 dict.
-                },
-                output_path + "_e" + str(epoch) + ".pth",
-            )
+        torch.save(
+            {
+                "memo": "Test",
+                "lrs": lrs,
+                "epoch": epoch,
+                "optims": optims,
+                "alpha": alpha,
+                "loss": val_loss,
+                "state_dict": model.state_dict(),  # 모든 weight 변수이름 / parameter 값들을 가진 dict.
+            },
+            output_path + "_e" + str(epoch) + ".pth",
+        )
 
-            out = pd.DataFrame(
-                {
-                    "lrs": [str(lrs)],
-                    "epochs": [str(epochs)],
-                    "optims": [str(optims)],
-                    "alpha": [str(alpha)],
-                    "loss": [str(min_lose)],
-                }
-            )
+        out = pd.DataFrame(
+            {
+                "lrs": [str(lrs)],
+                "epoch": [str(epoch)],
+                "optims": [str(optims)],
+                "alpha": [str(alpha)],
+                "loss": [str(val_loss)],
+            }
+        )
 
-            out.to_csv(output_path + "_e" + str(epoch) + ".csv")
+        out.to_csv(output_path + "_e" + str(epoch) + ".csv")
 
     #
     #
@@ -406,8 +408,8 @@ optimss = [
 # lrss = [0.00025]
 # epochss = [130]
 # alpha = [0.84]
-lrss = [0.00003]
-epochss = [200]
+lrss = [0.00010]
+epochss = [500]
 alpha = [0.84]
 
 for o in optimss:
@@ -485,12 +487,12 @@ def load_1_picture():
         # a = 0.84
         # L_mix = a * L_ms-ssim + (1-a) * L1 * Gaussian_L1
 
-        ms_ssim_l1_loss = MS_SSIM_L1_LOSS(alpha=0.9, data_range=255)
+        ms_ssim_l1_loss = MS_SSIM_L1_LOSS(alpha=1.00, data_range=0.97)
 
         loss = ms_ssim_l1_loss(gt_image, hint_image)
 
         
-        wandb.log({"MS_SSIM_L1_0.9": float(loss.cpu().flatten()[0])})
+        wandb.log({"MS_SSIM_L1_1.00": float(loss.cpu().flatten()[0])})
 
 
         # epoch (training / val)

@@ -63,13 +63,13 @@ def test_1_epoch(model, dataloader, name):
 # TEST CODE
 
 # TODO
-input_path = "111.pth"
+input_path = "R2AUNET_2022_05_29__23:33:51.069601_e135.pth"
 model_path = os.path.join(save_path, input_path)  # basic_model.tar
 saved_model = torch.load(model_path)
 
 print(saved_model["memo"])
 print(saved_model["lrs"])
-print(saved_model["epochs"])
+print(saved_model["epoch"])
 print(saved_model["optims"])
 print(saved_model["alpha"])
 print(saved_model["loss"])
